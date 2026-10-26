@@ -15,10 +15,19 @@ ENV DEBIAN_FRONTEND=noninteractive \
     MODEL_ID=BreezeBlue/Breeze-TTS-2 \
     FAST_ALL=true \
     HOST=0.0.0.0 \
-    PORT=7860
+    PORT=7860 \
+    CC=gcc \
+    CXX=g++
 
+# sox/ffmpeg 供音频；build-essential 供 FAST_ALL 预热时 Triton/Inductor 即时编译（不是 flash-attn）
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libsndfile1 sox \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        ffmpeg \
+        libsndfile1 \
+        sox \
+        build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/breeze-infer

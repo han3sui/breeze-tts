@@ -40,7 +40,7 @@
 
 需要在仓库 Settings → Secrets and variables → Actions 中配置 `DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`。也可以在 Actions 页面手动触发（标签为 `sha-<commit>`）。
 
-部署镜像基于 PyTorch CUDA **runtime**，不编译、不安装 `flash-attn`。`deploy/serve.py` 使用 eager + SDPA / CUDA Graph，`FAST_ALL` 不依赖 FlashAttention。
+部署镜像基于 PyTorch CUDA **runtime**，不编译、不安装 `flash-attn`。`deploy/serve.py` 使用 eager + SDPA / CUDA Graph，`FAST_ALL` 不依赖 FlashAttention。镜像内装了 `gcc`（`build-essential`），供 `FAST_ALL` 预热时 Triton/Inductor 即时编译；没有编译器时启动会报 `Failed to find C compiler`。
 
 上游官方镜像（`docker/Dockerfile`）仍会从源码编译 flash-attn，只用于官方推理实验；**不要**把它的产物接到这份 compose / RunPod 模板上。
 
