@@ -73,11 +73,11 @@ RunPod 的 Pod 不支持 docker-compose，用模板（Template）部署：
 普通 AutoDL 实例不能跑 Docker。SSH 安装与启动见 [docs/autodl.md](../docs/autodl.md)：
 
 ```bash
-bash deploy/autodl/install.sh
-bash deploy/autodl/start.sh          # 或 --tmux
+bash deploy/autodl/install.sh         # 装依赖并注册开机自启
+bash deploy/autodl/start.sh --tmux    # 后台 + 看门狗
 ```
 
-监听 **6006**，模型缓存在 `/root/autodl-tmp/hf-cache`，用控制台「自定义服务」地址接 VoStory。
+监听 **6006**，模型缓存在 `/root/autodl-tmp/hf-cache`，用控制台「自定义服务」地址接 VoStory。崩溃会自动拉起；开机由 crontab `@reboot` 再启（详见文档）。
 
 ## 本地 / 普通 GPU 服务器
 
