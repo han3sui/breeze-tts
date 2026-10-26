@@ -16,6 +16,19 @@
 
 系统盘约 30GB，装 Python 包可以；**模型约 8GB，必须放数据盘**，不要写到 `/root` 或 `/workspace`。
 
+AutoDL 不能拉 Docker 镜像，**必须先把仓库 clone 到实例里**，再跑安装脚本。第一次 SSH 进去复制下面整段即可（仓库地址换成你的）：
+
+```bash
+cd /root/autodl-tmp
+git clone https://github.com/han3sui/breeze-tts.git
+cd breeze-tts
+bash deploy/autodl/install.sh
+# 记下输出里的 API_KEY，给 VoStory 用
+bash deploy/autodl/start.sh --tmux
+```
+
+`install.sh` 只装依赖和注册开机自启，**不会立刻启动服务**，所以还要执行 `start.sh --tmux`。等到日志出现 `Uvicorn running on http://0.0.0.0:6006`。
+
 ## 1. 开实例
 
 1. 镜像尽量选 **PyTorch 2.9 + CUDA 12.8** 的社区镜像；对不上脚本会再装 `torch==2.9.1`。
@@ -25,19 +38,10 @@
 
 ## 2. 安装
 
-仓库已在实例里时：
+代码已在数据盘时（例如上次 clone 过），进入仓库再装即可：
 
 ```bash
-cd /path/to/breeze-tts
-bash deploy/autodl/install.sh
-```
-
-尚未克隆时（把仓库地址换成你的 fork）：
-
-```bash
-cd /root/autodl-tmp
-git clone https://github.com/han3sui/breeze-tts.git
-cd breeze-tts
+cd /root/autodl-tmp/breeze-tts
 bash deploy/autodl/install.sh
 ```
 
