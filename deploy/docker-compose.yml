@@ -1,0 +1,34 @@
+# 本地 / 普通 GPU 服务器部署（RunPod 不支持 docker-compose，见 deploy/README.md 的模板配置）
+#   cp .env.example .env && 修改 API_KEY
+#   docker compose up -d            # 使用已发布镜像
+#   docker compose up -d --build    # 本地构建
+services:
+  breeze-tts:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        FLASH_ATTN_CUDA_ARCHS: ${FLASH_ATTN_CUDA_ARCHS:-80;90}
+        MAX_JOBS: ${MAX_JOBS:-4}
+    image: ${BREEZE_IMAGE:-han3sui/breeze-tts:latest}
+    container_name: breeze-tts-api
+    restart: unless-stopped
+    ipc: host
+    ports:
+      - "${HOST_PORT:-7860}:7860"
+    environment:
+      - API_KEY=${API_KEY:?请在 .env 中设置 API_KEY}
+      - MODEL_ID=${MODEL_ID:-BreezeBlue/Breeze-TTS-2}
+      - MODEL_REVISION=${MODEL_REVISION:-}
+      - FAST_ALL=${FAST_ALL:-true}
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      # 模型权重缓存，首次启动下载后复用
+      - ./hf-cache:/workspace/hf-cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

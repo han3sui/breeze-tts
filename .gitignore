@@ -17,3 +17,6 @@ htmlcov/
 .env.*
 !.env.example
 
+
+# deploy
+deploy/hf-cache/

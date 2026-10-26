@@ -18,3 +18,7 @@ outputs
 *.pth
 *.ckpt
 *.safetensors
+
+# deploy
+deploy/hf-cache
+deploy/.env
