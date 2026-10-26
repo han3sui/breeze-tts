@@ -40,14 +40,9 @@
 
 需要在仓库 Settings → Secrets and variables → Actions 中配置 `DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`。也可以在 Actions 页面手动触发（标签为 `sha-<commit>`）。
 
-两阶段构建：先在 PyTorch devel 镜像里得到 flash-attn wheel（优先下载官方预编译 wheel，没有才从源码编译），再装进 runtime 镜像。`FLASH_ATTN_CUDA_ARCHS` 默认 `80;90`：
+部署镜像基于 PyTorch CUDA **runtime**，不编译、不安装 `flash-attn`。`deploy/serve.py` 使用 eager + SDPA / CUDA Graph，`FAST_ALL` 不依赖 FlashAttention。
 
-| 值 | 适用显卡 |
-|----|----------|
-| `80` | A100、RTX 3090、A5000、RTX 4090、L4、L40S（8.x 架构共用） |
-| `90` | H100 |
-
-flash-attn 2.8.3 只识别 `80/90/100/120`，填 `86`、`89` 不会生成任何内核。
+上游官方镜像（`docker/Dockerfile`）仍会从源码编译 flash-attn，只用于官方推理实验；**不要**把它的产物接到这份 compose / RunPod 模板上。
 
 ## RunPod 部署
 
@@ -56,7 +51,7 @@ RunPod 的 Pod 不支持 docker-compose，用模板（Template）部署：
 1. **Network Volume**：在 RunPod 创建一个 Network Volume（30GB 足够），与 Pod 选同一数据中心。Pod 会把它挂载到 `/workspace`，模型下载一次后复用。
 2. **新建模板**（Templates → New Template）：
    - Container Image：`han3sui/breeze-tts:latest`（或固定版本号）
-   - Container Disk：20GB
+   - Container Disk：30GB
    - Volume Mount Path：`/workspace`
    - Expose HTTP Ports：`7860`
    - Environment Variables：

@@ -7,9 +7,6 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-      args:
-        FLASH_ATTN_CUDA_ARCHS: ${FLASH_ATTN_CUDA_ARCHS:-80;90}
-        MAX_JOBS: ${MAX_JOBS:-4}
     image: ${BREEZE_IMAGE:-han3sui/breeze-tts:latest}
     container_name: breeze-tts-api
     restart: unless-stopped
