@@ -157,21 +157,32 @@ def _gpu_info() -> dict | None:
     if not torch.cuda.is_available():
         return None
     dev = torch.cuda.current_device()
-    total = torch.cuda.get_device_properties(dev).total_memory
+    torch_total = torch.cuda.get_device_properties(dev).total_memory
+    gpu_util = None
+    used_bytes = None
+    total_bytes = None
     try:
         import pynvml
 
         pynvml.nvmlInit()
         try:
-            gpu_util = pynvml.nvmlDeviceGetUtilizationRates(pynvml.nvmlDeviceGetHandleByIndex(dev)).gpu
+            handle = pynvml.nvmlDeviceGetHandleByIndex(dev)
+            gpu_util = pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
+            # 与 nvidia-smi 同源：整卡被占显存，不是 PyTorch allocated
+            mem = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            used_bytes = int(mem.used)
+            total_bytes = int(mem.total)
         finally:
             pynvml.nvmlShutdown()
     except Exception:
-        gpu_util = None
+        pass
+    total = total_bytes if total_bytes else torch_total
+    used = used_bytes if used_bytes is not None else torch.cuda.memory_reserved(dev)
     return {
         "name": torch.cuda.get_device_name(dev),
         "gpu_utilization": gpu_util,
         "memory_total_mb": round(total / 1024 / 1024),
+        "memory_used_mb": round(used / 1024 / 1024),
         "memory_allocated_mb": round(torch.cuda.memory_allocated(dev) / 1024 / 1024),
         "memory_reserved_mb": round(torch.cuda.memory_reserved(dev) / 1024 / 1024),
     }
