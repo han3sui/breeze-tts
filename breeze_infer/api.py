@@ -26,6 +26,7 @@ from starlette.types import Receive, Scope, Send
 from transformers.generation.logits_process import LogitsProcessorList
 
 from breeze_infer.batch import BatchDepthDecoder, eager_batch_modules
+from breeze_infer.ref_cache import RefAudioCache, sha256_file
 from breeze_infer.runtime import (
     load_runtime,
     resolve_device,
@@ -67,6 +68,7 @@ class ApiSettings:
 
 _settings: ApiSettings | None = None
 _request_lock = threading.Lock()
+_ref_cache = RefAudioCache()
 logger = logging.getLogger(__name__)
 
 
@@ -253,6 +255,52 @@ async def _save_upload(upload: UploadFile) -> Path:
     return path
 
 
+async def _resolve_reference(
+    ref_audio: UploadFile | None,
+    ref_text: str,
+    ref_audio_hash: str,
+) -> Path | None:
+    """Resolve a reference wav from upload or the process-local hash cache.
+
+    Cached files are owned by the cache and must not be deleted per-request.
+    """
+    ref_text = ref_text.strip()
+    has_file = ref_audio is not None and bool(ref_audio.filename)
+    digest = ref_audio_hash.strip().lower()
+    if has_file:
+        assert ref_audio is not None
+        if not ref_text:
+            raise HTTPException(
+                status_code=400,
+                detail="ref_audio and ref_text must be provided together or both omitted.",
+            )
+        upload_path = await _save_upload(ref_audio)
+        try:
+            actual = sha256_file(upload_path)
+            return _ref_cache.put(actual, upload_path)
+        finally:
+            upload_path.unlink(missing_ok=True)
+    if digest:
+        if not ref_text:
+            raise HTTPException(
+                status_code=400,
+                detail="ref_audio_hash requires ref_text.",
+            )
+        hit = _ref_cache.get(digest)
+        if hit is None:
+            raise HTTPException(
+                status_code=412,
+                detail="ref_audio_cache_miss",
+            )
+        return hit
+    if ref_text:
+        raise HTTPException(
+            status_code=400,
+            detail="ref_audio and ref_text must be provided together or both omitted.",
+        )
+    return None
+
+
 def _checkpoint_head_weights(model) -> dict[torch.nn.Module, torch.nn.Parameter]:
     """Snapshot the projection heads before streaming graph setup casts them.
 
@@ -354,6 +402,7 @@ async def speech(
     cfg_scale: float = Form(DEFAULT_CFG_SCALE),
     ref_audio: UploadFile | None = OPTIONAL_AUDIO_FILE,
     ref_text: str = Form(""),
+    ref_audio_hash: str = Form(""),
     seed: int = Form(42),
 ) -> StreamingResponse:
     if not _request_lock.acquire(blocking=False):
@@ -364,11 +413,7 @@ async def speech(
     reference_path: Path | None = None
 
     def cleanup() -> None:
-        try:
-            if reference_path is not None:
-                reference_path.unlink(missing_ok=True)
-        finally:
-            _request_lock.release()
+        _request_lock.release()
 
     try:
         if not np.isfinite(cfg_scale) or cfg_scale <= 0:
@@ -376,15 +421,7 @@ async def speech(
                 status_code=400, detail="cfg_scale must be greater than 0."
             )
         ref_text = ref_text.strip()
-        has_reference = ref_audio is not None and bool(ref_audio.filename)
-        if has_reference != bool(ref_text):
-            raise HTTPException(
-                status_code=400,
-                detail="ref_audio and ref_text must be provided together or both omitted.",
-            )
-        if has_reference:
-            assert ref_audio is not None
-            reference_path = await _save_upload(ref_audio)
+        reference_path = await _resolve_reference(ref_audio, ref_text, ref_audio_hash)
 
         request_id = f"api-{uuid.uuid4().hex}"
         instruction = instruction.strip() if instruction else None
@@ -549,6 +586,7 @@ async def speech_batch(
     cfg_scale: float = Form(DEFAULT_CFG_SCALE),
     ref_audio: UploadFile | None = OPTIONAL_AUDIO_FILE,
     ref_text: str = Form(""),
+    ref_audio_hash: str = Form(""),
     seed: int = Form(42),
     max_new_tokens: int = Form(MAX_NEW_TOKENS),
 ) -> Response:
@@ -566,11 +604,7 @@ async def speech_batch(
     worker_owns_cleanup = False
 
     def cleanup() -> None:
-        try:
-            if reference_path is not None:
-                reference_path.unlink(missing_ok=True)
-        finally:
-            _request_lock.release()
+        _request_lock.release()
 
     try:
         parsed_texts = _parse_batch_texts(texts)
@@ -580,15 +614,7 @@ async def speech_batch(
             )
         max_new_tokens = max(1, min(max_new_tokens, MAX_NEW_TOKENS))
         ref_text = ref_text.strip()
-        has_reference = ref_audio is not None and bool(ref_audio.filename)
-        if has_reference != bool(ref_text):
-            raise HTTPException(
-                status_code=400,
-                detail="ref_audio and ref_text must be provided together or both omitted.",
-            )
-        if has_reference:
-            assert ref_audio is not None
-            reference_path = await _save_upload(ref_audio)
+        reference_path = await _resolve_reference(ref_audio, ref_text, ref_audio_hash)
 
         def generate_and_cleanup() -> list[bytes]:
             try:
