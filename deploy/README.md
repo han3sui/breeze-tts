@@ -1,4 +1,4 @@
-# Breeze TTS 2 部署（Docker / RunPod）
+# Breeze TTS 2 部署（Docker / RunPod / Windows）
 
 在上游 `breeze_infer.api` 外层包了一层 `deploy/serve.py`，不改上游代码：
 
@@ -67,6 +67,15 @@ RunPod 的 Pod 不支持 docker-compose，用模板（Template）部署：
    - 点击「测试」应显示模型摘要，「查看状态」可看到 GPU 负载
 
 用完及时 Stop Pod；模型在 Network Volume 上，下次启动无需重新下载。
+
+## Windows 本机（NVIDIA）
+
+不要用 Docker 时，双击 `deploy/windows` 下的脚本即可。详见 [windows/README.md](windows/README.md)：
+
+1. 第一次：双击 `install.bat`（创建 `.venv`、装 CUDA 版 PyTorch，不装 flash-attn）
+2. 之后每次：双击 `start.bat`，关窗口即停
+
+监听 **7860**，模型缓存在 `deploy/windows/hf-cache/`。
 
 ## AutoDL
 
