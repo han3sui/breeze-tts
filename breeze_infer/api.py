@@ -359,7 +359,9 @@ def _load_app(app: FastAPI, settings: ApiSettings) -> None:
     if runtime.fast_enabled:
         profile = load_warmup_profile(FAST_CONFIG)
         profile = replace(profile, codec_chunk_frames=runtime.codec_chunk_frames)
-        manifest = runtime.warmup_from_profile(profile)
+        # 避免 torch 2.9 inductor 在 CUDA Graph 预热时 duplicate template
+        with torch._dynamo.config.patch(disable=True):
+            manifest = runtime.warmup_from_profile(profile)
         print(f"fast warmup: {manifest['total_elapsed_ms']:.2f} ms", flush=True)
 
     app.state.tokenizer = tokenizer

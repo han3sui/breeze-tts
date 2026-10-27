@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# AutoDL 安装：依赖、数据盘缓存目录、.env（不安装 flash-attn）
+# AutoDL 安装：依赖、系统盘缓存目录、.env（不安装 flash-attn）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="$ROOT/deploy/autodl/.env"
 ENV_EXAMPLE="$ROOT/deploy/autodl/.env.example"
-HF_HOME_DEFAULT="/root/autodl-tmp/hf-cache"
+HF_HOME_DEFAULT="/root/hf-cache"
 PYTHON="${PYTHON:-}"
 
 if [[ -z "$PYTHON" ]]; then

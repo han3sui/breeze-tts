@@ -73,14 +73,14 @@ RunPod 的 Pod 不支持 docker-compose，用模板（Template）部署：
 普通 AutoDL 实例不能跑 Docker。SSH 安装与启动见 [docs/autodl.md](../docs/autodl.md)：
 
 ```bash
-cd /root/autodl-tmp
+cd /root
 git clone https://github.com/han3sui/breeze-tts.git
 cd breeze-tts
 bash deploy/autodl/install.sh         # 装依赖并注册开机自启
 bash deploy/autodl/start.sh --tmux    # 后台 + 看门狗（install 不会自动启动）
 ```
 
-监听 **6006**，模型缓存在 `/root/autodl-tmp/hf-cache`，用控制台「自定义服务」地址接 VoStory。崩溃会自动拉起；开机由 crontab `@reboot` 再启（详见文档）。
+监听 **6006**，仓库和模型缓存在系统盘（`/root/breeze-tts`、`/root/hf-cache`），保存镜像后换机不用重下。用控制台「自定义服务」地址接 VoStory。崩溃会自动拉起；开机由 Jupyter sitecustomize 再启（详见文档）。
 
 ## 本地 / 普通 GPU 服务器
 

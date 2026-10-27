@@ -66,9 +66,12 @@ export HF_ENDPOINT="${HF_ENDPOINT:-}"
 export CC="${CC:-gcc}"
 export CXX="${CXX:-g++}"
 export PYTHON
+# torch 2.9.1 的 inductor 在 FAST_ALL 预热时会 AssertionError: duplicate template name
+# 关掉 dynamo 仍走 CUDA Graph，不影响 FAST_ALL 的加速路径
+export TORCHDYNAMO_DISABLE="${TORCHDYNAMO_DISABLE:-1}"
 
 WATCH_DELAY="${WATCH_DELAY:-5}"
-mkdir -p "${HF_HOME:-/root/autodl-tmp/hf-cache}"
+mkdir -p "${HF_HOME:-/root/hf-cache}"
 cd "$ROOT"
 
 run_once() {

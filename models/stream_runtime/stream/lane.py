@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 import torch
@@ -30,10 +31,17 @@ def _tconv_left_cache_len(conv: Qwen3TTSTokenizerV2CausalTransConvNet) -> int:
 
 
 def _cg_mark() -> None:
-    if hasattr(torch, "compiler") and hasattr(
-        torch.compiler, "cudagraph_mark_step_begin"
-    ):
-        torch.compiler.cudagraph_mark_step_begin()
+    # torch 2.9.1 一 import inductor 就会 AssertionError: duplicate template name。
+    # FAST_ALL 用的是 torch.cuda.CUDAGraph，不需要 inductor cudagraph trees。
+    if os.environ.get("TORCHDYNAMO_DISABLE", "") == "1":
+        return
+    mark = getattr(getattr(torch, "compiler", None), "cudagraph_mark_step_begin", None)
+    if mark is None:
+        return
+    try:
+        mark()
+    except Exception:
+        return
 
 
 def _ensure_canonical_ncl(x: torch.Tensor) -> torch.Tensor:
