@@ -21,4 +21,6 @@ htmlcov/
 # deploy
 deploy/hf-cache/
 deploy/windows/hf-cache/
+deploy/windows_intel/hf-cache/
 .venv/
+.venv-intel/
