@@ -28,6 +28,8 @@
 | `HF_HOME` | `/workspace/hf-cache` | 模型缓存目录 |
 | `FAST_ALL` | `true` | 全部加速路径（CUDA Graph），约 14.4GB 显存；16GB 以下显卡设为 `false` |
 | `HOST` / `PORT` | `0.0.0.0` / `7860` | 监听地址 |
+| `DEVICE` | 空 | 强制设备，如 `xpu`；空则自动选 CUDA / XPU / CPU |
+| `DTYPE` | `bfloat16` | `bfloat16` 或 `float16` |
 
 ## 镜像构建与发布
 
@@ -76,6 +78,15 @@ RunPod 的 Pod 不支持 docker-compose，用模板（Template）部署：
 2. 之后每次：双击 `start.bat`，关窗口即停
 
 监听 **7860**，模型缓存在 `deploy/windows/hf-cache/`。
+
+## Windows Intel Arc（A770 等）
+
+Intel 显卡请用单独目录，XPU 轮子不能和 NVIDIA 的 `.venv` 混装。详见 [windows_intel/README.md](windows_intel/README.md)：
+
+1. 第一次：双击 `deploy/windows_intel/install.bat`
+2. 之后每次：双击 `start.bat`，关窗口即停
+
+`FAST_ALL` 固定为 `false`，虚拟环境是 `.venv-intel`。只要能出音频，不追求实时。
 
 ## AutoDL
 

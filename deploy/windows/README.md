@@ -2,6 +2,8 @@
 
 在本机用 NVIDIA 显卡跑 `deploy/serve.py`。接口、鉴权、环境变量与 [deploy/README.md](../README.md) 相同。不装 `flash-attn`，走 eager + SDPA / CUDA Graph。
 
+Intel Arc（A770 等）请用 [../windows_intel/README.md](../windows_intel/README.md)，不要和这套 CUDA 环境混装。
+
 ## 准备
 
 1. Windows 10/11 x64，已装较新的 NVIDIA 驱动（`nvidia-smi` 能跑）

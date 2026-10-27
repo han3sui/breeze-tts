@@ -9,6 +9,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from breeze_infer.device import parse_dtype
 from breeze_infer.runtime import (
     load_runtime,
     resolve_device,
@@ -55,6 +56,12 @@ def main() -> None:
     parser.add_argument(
         "--fast-codec", action=argparse.BooleanOptionalAction, default=False
     )
+    parser.add_argument("--device", help="cuda / xpu / cpu；默认自动选择")
+    parser.add_argument(
+        "--dtype",
+        default="bfloat16",
+        help="bfloat16 或 float16；A770 出杂音时可改 float16",
+    )
     args = parser.parse_args()
 
     if not math.isfinite(args.cfg_scale) or args.cfg_scale <= 0:
@@ -69,8 +76,9 @@ def main() -> None:
 
     tokenizer, model, audio_tokenizer = load_runtime(
         args.model,
-        device=resolve_device(),
+        device=resolve_device(args.device),
         attn_implementation="eager",
+        dtype=parse_dtype(args.dtype),
     )
     update_generation_config_for_breeze(model)
 

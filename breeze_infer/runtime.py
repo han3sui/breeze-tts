@@ -9,6 +9,11 @@ import numpy as np
 import torch
 from transformers import AutoTokenizer
 
+from breeze_infer.device import (
+    is_xpu_available,
+    seed_accelerator,
+    set_accelerator_device,
+)
 from models.breeze import BreezeForConditionalGeneration
 
 
@@ -26,6 +31,8 @@ def resolve_device(explicit_device: str | None = None) -> str:
     _, _, local_rank = get_dist_info()
     if torch.cuda.is_available():
         return f"cuda:{local_rank}"
+    if is_xpu_available():
+        return f"xpu:{local_rank}"
     return "cpu"
 
 
@@ -33,8 +40,7 @@ def set_all_seeds(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    seed_accelerator(seed)
 
 
 def update_generation_config_for_breeze(
@@ -70,15 +76,16 @@ def load_runtime(
     *,
     device: str,
     attn_implementation: str,
+    dtype: torch.dtype = torch.bfloat16,
 ) -> tuple[AutoTokenizer, BreezeForConditionalGeneration, Any]:
 
-    if device.startswith("cuda"):
+    if device.startswith(("cuda", "xpu")):
         try:
-            torch.cuda.set_device(device)
+            set_accelerator_device(device)
         except Exception as exc:
             rank, world_size, local_rank = get_dist_info()
             raise RuntimeError(
-                "Failed to set CUDA device "
+                "Failed to set accelerator device "
                 f"device={device} rank={rank} world_size={world_size} local_rank={local_rank} "
                 f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')} "
                 f"device_count={torch.cuda.device_count()}"
@@ -89,7 +96,7 @@ def load_runtime(
     )
     model = BreezeForConditionalGeneration.from_pretrained(
         ckpt_dir,
-        dtype=torch.bfloat16,
+        dtype=dtype,
         attn_implementation=attn_implementation,
     )
     model.to(device).eval()

@@ -498,6 +498,8 @@ class MultiRequestStreamRuntime:
     def _sync_device(self) -> None:
         if self.config.device is not None and self.config.device.type == "cuda":
             torch.cuda.synchronize(self.config.device)
+        elif self.config.device is not None and self.config.device.type == "xpu":
+            torch.xpu.synchronize(self.config.device)
 
     def _handle_lifecycle_assert(self, message: str) -> None:
         mode = self.config.lifecycle_assert_mode

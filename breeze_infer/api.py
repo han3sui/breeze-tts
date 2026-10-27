@@ -26,6 +26,7 @@ from starlette.types import Receive, Scope, Send
 from transformers.generation.logits_process import LogitsProcessorList
 
 from breeze_infer.batch import BatchDepthDecoder, eager_batch_modules
+from breeze_infer.device import parse_dtype
 from breeze_infer.ref_cache import RefAudioCache, sha256_file
 from breeze_infer.runtime import (
     load_runtime,
@@ -64,6 +65,8 @@ class ApiSettings:
     fast_depth_decoder: bool
     fast_codec: bool
     model_info: dict[str, float | str | int]
+    device: str | None = None
+    dtype: str = "bfloat16"
 
 
 _settings: ApiSettings | None = None
@@ -335,8 +338,9 @@ def _swapped_weights(
 def _load_app(app: FastAPI, settings: ApiSettings) -> None:
     tokenizer, model, audio_tokenizer = load_runtime(
         settings.model,
-        device=resolve_device(),
+        device=resolve_device(settings.device),
         attn_implementation="eager",
+        dtype=parse_dtype(settings.dtype),
     )
     update_generation_config_for_breeze(model)
     batch_head_weights = _checkpoint_head_weights(model)
@@ -692,6 +696,12 @@ def main() -> None:
     parser.add_argument(
         "--fast-codec", action=argparse.BooleanOptionalAction, default=False
     )
+    parser.add_argument("--device", help="cuda / xpu / cpu；默认自动选择")
+    parser.add_argument(
+        "--dtype",
+        default="bfloat16",
+        help="bfloat16 或 float16；A770 出杂音时可改 float16",
+    )
     args = parser.parse_args()
     try:
         model_dir = resolve_model_dir(args.model, args.revision)
@@ -708,6 +718,8 @@ def main() -> None:
         fast_depth_decoder=args.fast_depth_decoder,
         fast_codec=args.fast_codec,
         model_info=build_model_info(model_dir),
+        device=args.device,
+        dtype=args.dtype,
     )
 
     import uvicorn

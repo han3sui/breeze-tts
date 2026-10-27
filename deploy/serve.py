@@ -8,6 +8,8 @@
     MODEL_PATH      本地模型目录，设置后优先于 MODEL_ID
     MODEL_REVISION  Hugging Face 版本（仅对 MODEL_ID 生效）
     FAST_ALL        是否开启全部加速路径（CUDA Graph），默认 true，约需 14.4GB 显存
+    DEVICE          强制设备，如 xpu；空则自动选择
+    DTYPE           bfloat16 或 float16，默认随上游
     HOST / PORT     监听地址，默认 0.0.0.0:7860
 """
 
@@ -153,9 +155,20 @@ def _memory_info() -> dict:
     }
 
 
+def _xpu_available() -> bool:
+    xpu = getattr(torch, "xpu", None)
+    return xpu is not None and bool(xpu.is_available())
+
+
 def _gpu_info() -> dict | None:
-    if not torch.cuda.is_available():
-        return None
+    if torch.cuda.is_available():
+        return _cuda_gpu_info()
+    if _xpu_available():
+        return _xpu_gpu_info()
+    return None
+
+
+def _cuda_gpu_info() -> dict:
     dev = torch.cuda.current_device()
     torch_total = torch.cuda.get_device_properties(dev).total_memory
     gpu_util = None
@@ -185,6 +198,23 @@ def _gpu_info() -> dict | None:
         "memory_used_mb": round(used / 1024 / 1024),
         "memory_allocated_mb": round(torch.cuda.memory_allocated(dev) / 1024 / 1024),
         "memory_reserved_mb": round(torch.cuda.memory_reserved(dev) / 1024 / 1024),
+    }
+
+
+def _xpu_gpu_info() -> dict:
+    dev = torch.xpu.current_device()
+    props = torch.xpu.get_device_properties(dev)
+    total = int(getattr(props, "total_memory", 0) or 0)
+    allocated = int(torch.xpu.memory_allocated(dev))
+    reserved = int(torch.xpu.memory_reserved(dev))
+    used = reserved if reserved else allocated
+    return {
+        "name": torch.xpu.get_device_name(dev),
+        "gpu_utilization": None,
+        "memory_total_mb": round(total / 1024 / 1024) if total else 0,
+        "memory_used_mb": round(used / 1024 / 1024),
+        "memory_allocated_mb": round(allocated / 1024 / 1024),
+        "memory_reserved_mb": round(reserved / 1024 / 1024),
     }
 
 
@@ -218,6 +248,12 @@ def _argv_from_env() -> list[str]:
         argv += ["--revision", revision]
     if _env_flag("FAST_ALL", True):
         argv.append("--fast-all")
+    device = os.environ.get("DEVICE", "").strip()
+    if device:
+        argv += ["--device", device]
+    dtype = os.environ.get("DTYPE", "").strip()
+    if dtype:
+        argv += ["--dtype", dtype]
     return argv
 
 
