@@ -14,7 +14,7 @@ NVIDIA 请用 [../windows/README.md](../windows/README.md)，两套虚拟环境�
 
 第一次：双击 `install.bat`，等它跑完，记下窗口里的 `API_KEY`。
 
-之后每次：双击 `start.bat`。出现 `Uvicorn running` 即可用。关窗口或 Ctrl+C 停止。
+之后每次：双击 `start.bat`。出现 `Uvicorn running` 即可用。关窗口或 Ctrl+C 停止。进程被 Intel 驱动断言杀掉时会自动重启，不再停在「请按任意键继续」。
 
 只合成一条 WAV（不必起 API）：
 
@@ -62,3 +62,4 @@ powershell -ExecutionPolicy Bypass -File deploy\windows_intel\install.ps1 -SkipH
 | `PORT` / `HOST` | `7860` / `0.0.0.0` | 监听 |
 | `MODEL_PATH` | 空 | 本地权重目录，优先于 `MODEL_ID` |
 | `HF_ENDPOINT` | `https://hf-mirror.com` | 国内镜像；不用则留空 |
+| `RESTART_ON_CRASH` | `true` | 异常退出后自动拉起；盯崩溃现场时改 `false` |
