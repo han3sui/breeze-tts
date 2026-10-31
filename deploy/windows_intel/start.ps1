@@ -1,5 +1,5 @@
-﻿# 前台启动 serve.py（Intel XPU eager）。XPU 驱动断言会直接杀掉进程，
-# 默认崩溃后自动重启；关窗口或 Ctrl+C 才真正停止。
+﻿# 前台启动 serve.py（Intel XPU eager）。进程被驱动杀掉，或 XPU 假死
+# 后 serve.py 主动退出时，都会自动重启；关窗口或 Ctrl+C 才真正停止。
 #Requires -Version 5.1
 [CmdletBinding()]
 param()
@@ -56,7 +56,7 @@ $crashStreak = 0
 while ($true) {
     Write-BreezeLog "starting: $python deploy\serve.py (device=$($env:DEVICE) dtype=$($env:DTYPE))"
     if ($restartOnCrash) {
-        Write-BreezeLog "崩溃后会自动重启；关此窗口或 Ctrl+C 停止"
+        Write-BreezeLog "崩溃或 XPU 假死后会自动重启；关此窗口或 Ctrl+C 停止"
     }
     else {
         Write-BreezeLog "关此窗口或 Ctrl+C 停止"

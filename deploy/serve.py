@@ -11,6 +11,7 @@
     DEVICE          强制设备，如 xpu；空则自动选择
     DTYPE           bfloat16 或 float16，默认随上游
     HOST / PORT     监听地址，默认 0.0.0.0:7860
+    EXIT_ON_FATAL_DEVICE  XPU 假死（Native API / UR_RESULT）时退出以便外层重启，默认 true
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ import hmac
 import os
 import platform
 import sys
+import threading
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +37,54 @@ from breeze_infer import api  # noqa: E402
 API_KEY = os.environ.get("API_KEY", "").strip()
 # /health 免鉴权，供负载均衡与人工检查服务是否在线
 PUBLIC_PATHS = frozenset({"/health"})
+
+# Intel Unified Runtime / Level Zero 把设备弄死后，进程往往还活着，
+# FastAPI 只回 500。这些错误不可恢复，退出后交给 start.ps1 重启。
+_FATAL_DEVICE_MARKERS = (
+    "UR_RESULT_ERROR_UNKNOWN",
+    "UR_RESULT_ERROR_DEVICE_LOST",
+    "UR_RESULT_ERROR_OUT_OF_DEVICE_MEMORY",
+    "UR_RESULT_ERROR_OUT_OF_RESOURCES",
+    "ZE_RESULT_ERROR_DEVICE_LOST",
+    "Native API failed",
+)
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None or value.strip() == "":
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_fatal_device_error(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__}: {exc}"
+    return any(marker in text for marker in _FATAL_DEVICE_MARKERS)
+
+
+def _exit_for_restart() -> None:
+    time.sleep(0.4)  # 先让 500 回给客户端
+    os._exit(1)
+
+
+class FatalDeviceExitMiddleware:
+    """XPU 设备假死时退出进程，否则会一直 500、现有崩溃重启也看不见。"""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await self.app(scope, receive, send)
+        except BaseException as exc:
+            if _env_flag("EXIT_ON_FATAL_DEVICE", True) and _is_fatal_device_error(exc):
+                print(
+                    f"[serve] XPU 设备已不可用，退出以便自动重启: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                threading.Thread(target=_exit_for_restart, daemon=True).start()
+            raise
 
 
 class BearerAuthMiddleware:
@@ -225,13 +276,8 @@ def status() -> dict:
 
 
 api.app.add_middleware(BearerAuthMiddleware)
-
-
-def _env_flag(name: str, default: bool) -> bool:
-    value = os.environ.get(name)
-    if value is None or value.strip() == "":
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+# 加在鉴权之外，才能接到 prepare_inputs 抛出的 XPU 假死
+api.app.add_middleware(FatalDeviceExitMiddleware)
 
 
 def _argv_from_env() -> list[str]:
